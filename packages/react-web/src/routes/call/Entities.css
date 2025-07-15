@@ -1,0 +1,9 @@
+/* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: MIT-0 */
+
+.box {
+  display: inline-block;
+  width: 1.7em;
+  border-radius: 8px;
+  color: var(--bs-dark);
+}

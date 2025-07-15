@@ -1,0 +1,24 @@
+/* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: MIT-0 */
+
+.highlight {
+  background-color: var(--highlight-colour);
+}
+
+.charts {
+  flex: 2 0 300px;
+}
+
+.transcribe-col {
+  flex: 1 1 550px;
+
+}
+
+.call-details-col {
+  flex: 1 1 550px;
+}
+
+.playing {
+  background-color: #ffff00;
+  text-decoration: underline;
+}
