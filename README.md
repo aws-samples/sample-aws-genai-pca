@@ -19,7 +19,7 @@ A sample post call analytics solution that leverages AWS services like Amazon Tr
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 - [Related Resources](#related-resources)
-- [Security] (#security)
+- [Security](#security)
 - [License](#license)
 
 ## Overview
