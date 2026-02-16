@@ -66,6 +66,7 @@ export class ApiConstruct extends Construct {
       new PolicyStatement({
         actions: [
           'bedrock:InvokeModel',
+          'bedrock:Converse',
         ],
         resources: getBedrockResourceArns(props.bedrockModelId, props.inferenceProfileRegionArns, Stack.of(this)),
         effect: Effect.ALLOW,

@@ -1,41 +1,21 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-import boto3
 import os
-# import pcaresults
 import json
-# import pcacommon
 import fetchtranscript as fts
 import bedrockutil
-# from datetime import datetime
-import langchainutil
-
-
 import traceback
-# import glob
-# from typing import Optional
 
 
-AWS_REGION = os.environ["AWS_REGION"]
 SUMMARIZE_TYPE = os.getenv('SUMMARY_TYPE', 'BEDROCK')
 
-
-bedrock_client = None
-s3Client = boto3.client('s3')
-
-# Useful constants
-TMP_DIR = "/tmp"
-
-
-
-boto3_bedrock = bedrockutil.get_bedrock_client()
-bedrock_llm = langchainutil.get_bedrock_llm(boto3_bedrock)
-
 def get_prompt_templates():
-    prompt_templates = [{"OverallSummary": "\n\nHuman: Answer the questions below, defined in <question></question> based on the conversation between customer care agent and customer defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.\n\n<question>What is the overall summary of the conversation?</question>\n\n<transcript>\n{transcript}\n</transcript>\n\nAssistant:"},
-             {"ExecutiveSummary": "\n\nHuman: Answer the questions below, defined in <question></question> based on the conversation between customer care agent and customer defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.\n\n<question>What is the executibe summary of the conversation and provide actions for the executive?</question>\n\n<transcript>\n{transcript}\n</transcript>\n\nAssistant:"},
-             {"SentimentChange": "\n\nHuman: Answer the questions below, defined in <question></question> based on the conversation between customer care agent and customer defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.\n\n<question>A sentiment change score on a scale of -5 (negative change) to 5 (positive change), indicating how the customer's sentiment shifted from the beginning to the end of the interaction.To analyze the sentiment, consider the customer's language, tone, and emotional expressions throughout the conversation. Pay attention to positive or negative words, phrases, and sentiments expressed by the customer.</question>\n\n<transcript>\n{transcript}\n</transcript>\n\nAssistant:"},
-             {"Sentiment": "\n\nHuman: Answer the questions below, defined in <question></question> based on the conversation between customer care agent and customer defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.\n\n<question>An overall sentiment score for the customer on a scale of -1 (negative) to 1 (positive), with 0 being neutral.To analyze the sentiment, consider the customer's language, tone, and emotional expressions throughout the conversation. Pay attention to positive or negative words, phrases, and sentiments expressed by the customer.</question>\n\n<transcript>\n{transcript}\n</transcript>\n\nAssistant:"}]
+    prompt_templates = [
+        {"OverallSummary": "You are a helpful assistant that always responds in English. Based on the conversation between a customer care agent and customer in the transcript below, provide an overall summary of the conversation. You must always provide a summary based on whatever content is available. Use gender neutral pronouns. Respond only with the summary text, no XML tags.\n\n<transcript>\n{transcript}\n</transcript>"},
+        {"ExecutiveSummary": "You are a helpful assistant that always responds in English. Based on the conversation between a customer care agent and customer in the transcript below, provide an executive summary and actions for the executive. You must always provide a summary based on whatever content is available. Use gender neutral pronouns. Respond only with the summary text, no XML tags.\n\n<transcript>\n{transcript}\n</transcript>"},
+        {"SentimentChange": "You are a helpful assistant that always responds in English. Based on the conversation between a customer care agent and customer in the transcript below, provide a sentiment change score on a scale of -5 (negative change) to 5 (positive change), indicating how the customer's sentiment shifted from the beginning to the end of the interaction. Consider the customer's language, tone, and emotional expressions. Respond only with the numeric score.\n\n<transcript>\n{transcript}\n</transcript>"},
+        {"Sentiment": "You are a helpful assistant that always responds in English. Based on the conversation between a customer care agent and customer in the transcript below, provide an overall sentiment score for the customer on a scale of -1 (negative) to 1 (positive), with 0 being neutral. Consider the customer's language, tone, and emotional expressions. Respond only with the numeric score.\n\n<transcript>\n{transcript}\n</transcript>"},
+    ]
 
     return prompt_templates
     
@@ -78,10 +58,6 @@ def summarize(input_bucket, ticket_details):
     phoneCalls = ticket_details["phoneCalls"]
     
     # --------- Summarize Here ----------
-    executive_summary = None
-    overall_summary = None
-    sentimentChange = 0 
-    sentimentScore = 0 
 
     full_trancript = "\n"
     if SUMMARIZE_TYPE == 'BEDROCK' or SUMMARIZE_TYPE == 'BEDROCK+TCA':
@@ -104,7 +80,7 @@ def summarize(input_bucket, ticket_details):
                     # callId = str(index)
                     full_trancript = full_trancript + "\n" + transcript_str + "\n\n" 
 
-            full_trancript = "\n Ticket Comments log \n \n" + comments_combined+"\n"                
+            full_trancript = full_trancript + "\n Ticket Comments log \n \n" + comments_combined+"\n"                
             try:                
                 summary_response = generate_bedrock_summary(full_trancript)
             except Exception as e:

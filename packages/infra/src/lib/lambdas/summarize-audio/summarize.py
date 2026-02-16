@@ -1,86 +1,17 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-import boto3
 import os
 import pcaconfiguration as cf
 import pcaresults
 import json
 import fetchtranscript as fts
 import bedrockutil
-import langchainutil
 import traceback
 import xml.etree.ElementTree as ET
 
-from langchain_core.messages import HumanMessage, AIMessage
 
-
-AWS_REGION = os.environ["AWS_REGION_OVERRIDE"] if "AWS_REGION_OVERRIDE" in os.environ else os.environ["AWS_REGION"]
 SUMMARIZE_TYPE = os.getenv('SUMMARY_TYPE', 'BEDROCK')
-TOKEN_COUNT = int(os.getenv('TOKEN_COUNT', '0')) # default 0 - do not truncate.
-MAX_TOKENS = int(os.getenv('MAX_TOKENS','256'))
 
-s3Client = boto3.client('s3')
-dynamodb_client = boto3.client('dynamodb')
-
-# Useful constants
-TMP_DIR = "/tmp"
-
-boto3_bedrock = bedrockutil.get_bedrock_client()
-bedrock_llm = langchainutil.get_bedrock_llm(boto3_bedrock)
-
-
-# Using LLM to find AGENT and CUSTIMER tags
-def identify_customer_agent(transcription):
-    messages = [
-        HumanMessage(
-            content="""You are a smart, focused and objective AI working with AnyCompany which works in fsi segment. 
-You will be given a Transcript having two IDs which are USER_0 and USER_1. You are to identify and tag which of these IDs is the AGENT and the CUSTOMER.    
-Expexted output format:
-<tag_report>
-    {"USER_0": "CUSTOMER OR AGENT whichever is right mapping", "USER_1": "CUSTOMER OR AGENT whichever is right mapping"}
-</tag_report>
-Remember if USER_0 is AGENT then USER_1 is the CUSTOMER or vice versa.
-"""
-        ),
-        AIMessage(
-            content="""Understood, I will tag IDs as instructed. Please provide me with the call transcription."""
-        ),
-        HumanMessage(
-            content="""Yes, following is the transcript, please provide mapping for AGENT and CUSTOMER
-<call_transcription>
-"""+transcription+"""
-</call_transcription>
-Go through the transcription very carefully, think through for the correct mapping for USER_0 and USER_1 and give back the output in the format provided."""
-        ),
-        AIMessage(
-            content="""<tag_report>"""
-        )
-    ]
-    response = bedrock_llm.invoke(messages)
-    result = "<tag_report>\n" + response.content
-    return result
-
-# extracts the transcripts from the transcribe output while correctly identifying the Agent and the Customer
-def fix_customer_agent_mapping_and_get_transcript(tr_str):
-    transcription = tr_str
-    mapping = bedrockutil.extract_json(identify_customer_agent(transcription))
-    for key in mapping.keys():
-        transcription = transcription.replace(key, mapping[key])
-    print(f"agent mapping and get transcription result : {transcription}")
-    return transcription
-
-
-## Consolidating the Transcriptions
-def create_transcription_in_markdown_format(json_str):
-    mapping = {'CUSTOMER': 'USER_0', 'AGENT': 'USER_1'}
-    # file_name = file.split('/')[-1].split('.')[0]
-    # with open(file, 'r') as f:
-    #     data = json.load(f)
-    data = json_str
-    transcription = ""
-    for instance in data['Transcript']:
-        transcription += mapping[instance['ParticipantRole']] + f" : {instance['Content']}\n\n"
-    return transcription
 
 def get_templates_from_dynamodb():
     templates = []
@@ -89,19 +20,19 @@ def get_templates_from_dynamodb():
 
         prompt_templates = {
              "LLMPromptTemplateId": "LLMPromptSummaryTemplate",
-             "1#Summary": "<br><br>Human: Answer the questions below, defined in <question></question> based on the transcript defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.<br><br><question>What is a summary of the transcript?</question><br><br><transcript><br>{transcript}<br></transcript><br><br>Assistant:",
-             "2#Topic": "<br><br>Human: Answer the questions below, defined in <question></question> based on the transcript defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.<br><br><question>What is the topic of the call? For example, iphone issue, billing issue, cancellation. Only reply with the topic, nothing more.</question><br><br><transcript><br>{transcript}<br></transcript><br><br>Assistant:",
-             "3#Product": "<br><br>Human: Answer the questions below, defined in <question></question> based on the transcript defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.<br><br><question>What product did the customer call about? For example, internet, broadband, mobile phone, mobile plans. Only reply with the product, nothing more.</question><br><br><transcript><br>{transcript}<br></transcript><br><br>Assistant:",
-             "4#Resolved": "<br><br>Human: Answer the questions below, defined in <question></question> based on the transcript defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.<br><br><question>Did the agent resolve the customer's questions? Only reply with yes or no, nothing more. </question><br><br><transcript><br>{transcript}<br></transcript><br><br>Assistant:",
-             "5#Callback": "<br><br>Human: Answer the questions below, defined in <question></question> based on the transcript defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.<br><br><question>Was this a callback? (yes or no) Only reply with yes or no, nothing more.</question><br><br><transcript><br>{transcript}<br></transcript><br><br>Assistant:",
-             "6#Politeness": "<br><br>Human: Answer the question below, defined in <question></question> based on the transcript defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.<br><br><question>Was the agent polite and professional? (yes or no) Only reply with yes or no, nothing more.</question><br><br><transcript><br>{transcript}<br></transcript><br><br>Assistant:",
-             "7#Actions": "<br><br>Human: Answer the question below, defined in <question></question> based on the transcript defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.<br><br><question>What actions did the Agent take? </question><br><br><transcript><br>{transcript}<br></transcript><br><br>Assistant:",
-             "8#EmailResponse":"<transcript><br>{transcript}<br></transcript><br>Based on the above conversation between the AGENT and the CUSTOMER, write an email response addressing the customer with his / her name.Start by thanking the customer for being a valuable customer of AOne and taking time to talk to one of our agents.Depending on the summary of the ticket and the customer sentiment, write an email with the next steps. Close the email with a thank you note.<br><br>Assistant:"
+             "1#Summary": "You are a helpful assistant that always responds in English. Based on the transcript below, provide a summary. You must always provide a summary based on whatever content is available. Use gender neutral pronouns. Respond only with the summary text, no XML tags.\n\n<transcript>\n{transcript}\n</transcript>",
+             "2#Topic": "You are a helpful assistant that always responds in English. Based on the transcript below, what is the topic of the call? For example, iphone issue, billing issue, cancellation. Only reply with the topic, nothing more.\n\n<transcript>\n{transcript}\n</transcript>",
+             "3#Product": "You are a helpful assistant that always responds in English. Based on the transcript below, what product did the customer call about? For example, internet, broadband, mobile phone, mobile plans. Only reply with the product, nothing more.\n\n<transcript>\n{transcript}\n</transcript>",
+             "4#Resolved": "You are a helpful assistant that always responds in English. Based on the transcript below, did the agent resolve the customer's questions? Only reply with yes or no, nothing more.\n\n<transcript>\n{transcript}\n</transcript>",
+             "5#Callback": "You are a helpful assistant that always responds in English. Based on the transcript below, was this a callback? Only reply with yes or no, nothing more.\n\n<transcript>\n{transcript}\n</transcript>",
+             "6#Politeness": "You are a helpful assistant that always responds in English. Based on the transcript below, was the agent polite and professional? Only reply with yes or no, nothing more.\n\n<transcript>\n{transcript}\n</transcript>",
+             "7#Actions": "You are a helpful assistant that always responds in English. Based on the transcript below, what actions did the Agent take? Respond only with the answer as plain text, no XML tags.\n\n<transcript>\n{transcript}\n</transcript>",
+             "8#EmailResponse": "You are a helpful assistant that always responds in English. Based on the conversation between the AGENT and the CUSTOMER in the transcript below, write an email response addressing the customer with his / her name. Start by thanking the customer for being a valuable customer of AOne and taking time to talk to one of our agents. Depending on the summary of the ticket and the customer sentiment, write an email with the next steps. Close the email with a thank you note. Respond in plain text, no XML tags.\n\n<transcript>\n{transcript}\n</transcript>"
             }
 
         for k in sorted(prompt_templates):
             if (k != "LLMPromptTemplateId"):
-                prompt = prompt_templates[k].replace("<br>", "\n")
+                prompt = prompt_templates[k]
                 index = k.find('#')
                 k_stripped = k[index+1:]
                 templates.append({ k_stripped:prompt })
@@ -210,13 +141,8 @@ def generate_qa_report(transcript):
             ....
         }}
     """
-    messages = [
-        HumanMessage(
-            content= prompt
-        )
-    ]
-    response = bedrock_llm.invoke(messages)
-    greeting_rules = bedrockutil.extract_json(response.content)
+    response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+    greeting_rules = bedrockutil.extract_json(response)
     result_json = {}
     # calculate email score
     overall_score = 0

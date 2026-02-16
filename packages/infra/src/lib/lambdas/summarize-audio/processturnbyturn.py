@@ -6,20 +6,16 @@ from urllib.parse import urlparse
 from math import floor
 from pcaresults import SpeechSegment, PCAResults
 import pcaconfiguration as cf
-import pcacommon
-import subprocess
 import copy
 import re
 import json
 import csv
+import io
+import os
+import math
 import boto3
 import time
 import bedrockutil
-import langchainutil
-import pandas as pd
-import math
-
-from langchain_core.messages import HumanMessage
 
 # Sentiment helpers
 MIN_SENTIMENT_LENGTH = 8
@@ -57,8 +53,6 @@ class TranscribeParser:
         self.api_mode = cf.API_STANDARD
         self.analytics_channel_map = {}
         self.asr_output = ""
-        self.boto3_bedrock = bedrockutil.get_bedrock_client()
-        self.bedrock_llm = langchainutil.get_bedrock_llm(self.boto3_bedrock)        
 
 
         cf.loadConfiguration()
@@ -994,46 +988,10 @@ class TranscribeParser:
                 print(e)
             finally:
                 # Remove our temporary in case of Lambda container re-use
-                pcacommon.remove_temp_file(mapFilepath)
+                if os.path.exists(mapFilepath):
+                    os.remove(mapFilepath)
 
-    def create_playback_mp3_audio(self, audio_uri):
-        """
-        Creates and MP3-version of the audio file used in the Transcribe job, as the HTML5 <audio> playback
-        controller cannot play them back if they are GSM-encoded 8Khz WAV files.  Still need to work out how
-        to check for then encoding type via FFMPEG, but we do get the other info from Transcribe.
 
-        @param audio_uri: URI of the audio file to be potentially dowloaded and converted
-        """
-
-        # Get some info on the audio file before continuing
-        s3Object = urlparse(audio_uri)
-        bucket = s3Object.netloc
-
-        # 8Khz WAV audio gets converted - first, we need to download the original audio file
-        fileObject = s3Object.path.lstrip('/')
-        inputFilename = TMP_DIR + '/' + fileObject.split('/')[-1]
-        outputFilename = inputFilename.split('.wav')[0] + '.mp3'
-        s3Client = boto3.client('s3')
-        s3Client.download_file(bucket, fileObject, inputFilename)
-
-        # Transform the file via FFMPEG - this will exception if not installed
-        try:
-            # Just convert from source to destination format
-            subprocess.call(['ffmpeg', '-nostats', '-loglevel', '0', '-y', '-i', inputFilename, outputFilename],
-                            stdin=subprocess.DEVNULL)
-
-            # Now upload the output file to the configured playback folder in the main input bucket
-            s3FileKey = cf.appConfig[cf.CONF_PREFIX_AUDIO_PLAYBACK] + '/' + outputFilename.split('/')[-1]
-            s3Client.upload_file(outputFilename, cf.appConfig[cf.CONF_S3BUCKET_INPUT], s3FileKey,
-                                 ExtraArgs={'ContentType': 'audio/mp3'})
-            self.audioPlaybackUri = "s3://" + cf.appConfig[cf.CONF_S3BUCKET_INPUT] + "/" + s3FileKey
-        except Exception as e:
-            print(e)
-            print("Unable to create MP3 version of original audio file - could not find FFMPEG libraries")
-        finally:
-            # Remove our temporary files in case of Lambda container re-use
-            pcacommon.remove_temp_file(inputFilename)
-            pcacommon.remove_temp_file(outputFilename)
     
     
 
@@ -1047,13 +1005,20 @@ class TranscribeParser:
         
         trimmed_segments = list(map(lambda x: {'SegmentId': x['SegmentId'], 'Speaker': x['SegmentSpeaker'], 'Text': x['OriginalText']}, speech_segments))
         #Removing segments which are fillers
-        trimmed_segments = filter(lambda x: len(x['Text'])>4, trimmed_segments)
-        segments_df = pd.DataFrame.from_dict(trimmed_segments)
-        segments_csv = segments_df.to_csv(index=False)
+        trimmed_segments = [x for x in trimmed_segments if len(x['Text'])>4]
+        fieldnames = ['SegmentId', 'Speaker', 'Text']
+
+        def segments_to_csv(segments):
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(segments)
+            return output.getvalue()
+
         updated_speech_segments = []
         
-        for i in range(0, segments_df.shape[0], 100):
-            segments_csv = segments_df[i:i+100].to_csv(index=False)
+        for i in range(0, len(trimmed_segments), 100):
+            segments_csv = segments_to_csv(trimmed_segments[i:i+100])
             prompt = f"""
               AnyCompany is an Indian enterprise which works in fsi segment.
     
@@ -1075,8 +1040,8 @@ class TranscribeParser:
     
             
     
-            response = self.bedrock_llm.invoke([HumanMessage(prompt)])
-            sentiment_evaluation = bedrockutil.extract_json(response.content)           
+            response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+            sentiment_evaluation = bedrockutil.extract_json(response)           
     
             for segment in speech_segments:
                 
@@ -1152,8 +1117,8 @@ class TranscribeParser:
                         }}
                     }}                                         
                     """
-            response = self.bedrock_llm.invoke([HumanMessage(prompt)])
-            loudness_evaluation = bedrockutil.extract_json(response.content)           
+            response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+            loudness_evaluation = bedrockutil.extract_json(response)           
 
             updated_loudness_detections = []
             for loudness in loudness_detections:
@@ -1220,8 +1185,8 @@ class TranscribeParser:
                 }}
             }}                                         
             """
-            response = self.bedrock_llm.invoke([HumanMessage(prompt)])
-            interruption_evaluation = bedrockutil.extract_json(response.content)           
+            response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+            interruption_evaluation = bedrockutil.extract_json(response)           
             print(interruption_evaluation)
             updated_interruption_detections = []
             for interruption in interruption_detections:
@@ -1338,7 +1303,8 @@ class TranscribeParser:
         sf_event.pop("redactedMediaFileUri", None)
 
         # delete the local file
-        pcacommon.remove_temp_file(json_filepath)
+        if os.path.exists(json_filepath):
+            os.remove(json_filepath)
 
 
 def lambda_handler(event):

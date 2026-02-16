@@ -1,32 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-import boto3
-import os
 import bedrockutil
-import langchainutil
-
-from langchain_core.messages import HumanMessage
 import xml.etree.ElementTree as ET
-
-
-
-AWS_REGION = os.environ["AWS_REGION_OVERRIDE"] if "AWS_REGION_OVERRIDE" in os.environ else os.environ["AWS_REGION"]
-SUMMARIZE_TYPE = os.getenv('SUMMARY_TYPE', 'BEDROCK')
-TOKEN_COUNT = int(os.getenv('TOKEN_COUNT', '0')) # default 0 - do not truncate.
-
-
-MAX_TOKENS = int(os.getenv('MAX_TOKENS','256'))
-
-bedrock_client = None
-s3Client = boto3.client('s3')
-
-
-# Useful constants
-TMP_DIR = "/tmp"
-
-
-boto3_bedrock = bedrockutil.get_bedrock_client()
-bedrock_llm = langchainutil.get_bedrock_llm(boto3_bedrock)
 
 def generate_qa_report(email_content):
     rules = """
@@ -84,13 +59,8 @@ def generate_qa_report(email_content):
             ....
         }}
     """
-    messages = [
-        HumanMessage(
-            content= prompt
-        )
-    ]
-    response = bedrock_llm.invoke(messages)
-    greeting_rules = bedrockutil.extract_json(response.content)
+    response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+    greeting_rules = bedrockutil.extract_json(response)
     result_json = {}
     # calculate email score
     overall_score = 0

@@ -3,7 +3,8 @@
 import json
 import os
 import time
-import pandas as pd
+import csv
+import openpyxl
 import urllib.parse
 import zipfile
 from datetime import datetime
@@ -38,8 +39,13 @@ def convert_excel_to_csv(excel_file_path, csv_file_path):
     :param excel_file_path: Path to the Excel file
     :param csv_file_path: Path to the CSV file
     """
-    df = pd.read_excel(excel_file_path, sheet_name=0)
-    df.to_csv(csv_file_path, index=False)
+    wb = openpyxl.load_workbook(excel_file_path, read_only=True, data_only=True)
+    ws = wb.worksheets[0]
+    with open(csv_file_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        for row in ws.iter_rows(values_only=True):
+            writer.writerow(row)
+    wb.close()
         
 def handle_zip_file(zip_file_path, job_id, bucket, file_prefix):
     """

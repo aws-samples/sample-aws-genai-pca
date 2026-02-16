@@ -1,7 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-import json
 import os
 import boto3
 import time
@@ -9,8 +8,6 @@ from boto3.dynamodb.conditions import Key, Attr
 import summarizenotes as summn
 
 print("Loading Ticket Notes Summarization Function...")
-s3_client = boto3.client("s3")
-input_bucket = os.environ["INPUT_BUCKET"]
 
 METADATA_TABLE_NAME = os.environ['METADATA_TABLE_NAME']
 

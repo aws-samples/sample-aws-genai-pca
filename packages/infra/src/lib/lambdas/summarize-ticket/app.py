@@ -1,28 +1,19 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-import json
 import os
 import summarizeticket as summt
 import boto3
 import pcaconfiguration as cf
-from decimal import Decimal
 from boto3.dynamodb.conditions import Key
 
 import time
 
 print("Loading Summarization Fn...")
-s3_client = boto3.client("s3")
 input_bucket = os.environ["INPUT_BUCKET"]
 METADATA_TABLE_NAME = os.environ['METADATA_TABLE_NAME']
 metadata_table = boto3.resource("dynamodb").Table(METADATA_TABLE_NAME)
 
-
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            return float(obj)
-        return super(DecimalEncoder, self).default(obj)
 
 def get_ticket_by_job_id(ticket_id, job_id):
     print(ticket_id, job_id)

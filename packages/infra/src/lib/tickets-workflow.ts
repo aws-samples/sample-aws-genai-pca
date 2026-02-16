@@ -18,7 +18,6 @@ export interface TicketsWorkflowProps {
   readonly transcribeWorkflow: StateMachine;
   readonly inputBucket: IBucket;
   readonly metadataTable: Table;
-  readonly langchainLambdaLayer: PythonLayerVersion;
   readonly commonLambdaLayer: PythonLayerVersion;
   readonly bedrockModelId: string;
   readonly inferenceProfileRegionArns?: string[];
@@ -57,7 +56,7 @@ export class TicketsWorkflow extends Construct {
         METADATA_TABLE_NAME: props.metadataTable.tableName,
         BEDROCK_MODEL_ID: props.bedrockModelId,
       },
-      layers: [props.langchainLambdaLayer, props.commonLambdaLayer],
+      layers: [props.commonLambdaLayer],
     });
 
     summarizeNotesFn.addToRolePolicy(
@@ -65,6 +64,7 @@ export class TicketsWorkflow extends Construct {
         actions: [
           'bedrock:InvokeModel',
           'bedrock:InvokeModelWithResponseStream',
+          'bedrock:Converse',
         ],
         resources: getBedrockResourceArns(props.bedrockModelId, props.inferenceProfileRegionArns, Stack.of(this)),
         effect: Effect.ALLOW,
@@ -90,7 +90,7 @@ export class TicketsWorkflow extends Construct {
         METADATA_TABLE_NAME: props.metadataTable.tableName,
         BEDROCK_MODEL_ID: props.bedrockModelId,
       },
-      layers: [props.langchainLambdaLayer, props.commonLambdaLayer],
+      layers: [props.commonLambdaLayer],
     });
 
     summarizeTicketFn.addToRolePolicy(
@@ -98,6 +98,7 @@ export class TicketsWorkflow extends Construct {
         actions: [
           'bedrock:InvokeModel',
           'bedrock:InvokeModelWithResponseStream',
+          'bedrock:Converse',
         ],
         resources: getBedrockResourceArns(props.bedrockModelId, props.inferenceProfileRegionArns, Stack.of(this)),
         effect: Effect.ALLOW,
