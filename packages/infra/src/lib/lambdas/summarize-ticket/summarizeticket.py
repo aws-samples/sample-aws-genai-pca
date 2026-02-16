@@ -1,35 +1,13 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-import boto3
 import os
-# import pcaresults
 import json
-# import pcacommon
 import fetchtranscript as fts
 import bedrockutil
-# from datetime import datetime
-import langchainutil
-
-
 import traceback
-# import glob
-# from typing import Optional
 
 
-AWS_REGION = os.environ["AWS_REGION"]
 SUMMARIZE_TYPE = os.getenv('SUMMARY_TYPE', 'BEDROCK')
-
-
-bedrock_client = None
-s3Client = boto3.client('s3')
-
-# Useful constants
-TMP_DIR = "/tmp"
-
-
-
-boto3_bedrock = bedrockutil.get_bedrock_client()
-bedrock_llm = langchainutil.get_bedrock_llm(boto3_bedrock)
 
 def get_prompt_templates():
     prompt_templates = [{"OverallSummary": "\n\nHuman: Answer the questions below, defined in <question></question> based on the conversation between customer care agent and customer defined in <transcript></transcript>. If you cannot answer the question, reply with 'n/a'. Use gender neutral pronouns. When you reply, only respond with the answer.\n\n<question>What is the overall summary of the conversation?</question>\n\n<transcript>\n{transcript}\n</transcript>\n\nAssistant:"},
@@ -78,10 +56,6 @@ def summarize(input_bucket, ticket_details):
     phoneCalls = ticket_details["phoneCalls"]
     
     # --------- Summarize Here ----------
-    executive_summary = None
-    overall_summary = None
-    sentimentChange = 0 
-    sentimentScore = 0 
 
     full_trancript = "\n"
     if SUMMARIZE_TYPE == 'BEDROCK' or SUMMARIZE_TYPE == 'BEDROCK+TCA':

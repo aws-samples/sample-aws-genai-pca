@@ -3,7 +3,6 @@
 import json
 import boto3
 import os
-from decimal import Decimal
 
 from boto3.dynamodb.conditions import Key
 
@@ -11,20 +10,11 @@ import fetchtranscript as fts
 import pcaconfiguration as cf
 import bedrockutil
 
-AWS_REGION =  os.environ["AWS_REGION"]
-SUMMARIZE_TYPE = os.getenv('SUMMARY_TYPE', 'BEDROCK')
-TOKEN_COUNT = int(os.getenv('TOKEN_COUNT', '0')) # default 0 - do not truncate.
-MAX_TOKENS = int(os.getenv('MAX_TOKENS','256'))
 input_bucket = os.environ['INPUT_S3_BUCKET']
 ALLOWED_DOMAINS = os.environ['ALLOWED_DOMAINS']
 
 QUERY_TYPE = os.getenv('QUERY_TYPE', 'BEDROCK')
-ANTHROPIC_ENDPOINT_URL = os.getenv('ANTHROPIC_ENDPOINT_URL','')
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY','')
-TOKEN_COUNT = int(os.getenv('TOKEN_COUNT', '0')) # default 0 - do not truncate.
 
-s3_client = boto3.client('s3')
-dynamodb_client = boto3.client('dynamodb')
 METADATA_TABLE_NAME = os.environ['METADATA_TABLE_NAME']
 metadata_table = boto3.resource("dynamodb").Table(METADATA_TABLE_NAME)
 
@@ -38,10 +28,6 @@ response = {
     },
     'body': json.dumps({})
 }
-
-
-# Useful constants
-TMP_DIR = "/tmp"
 
 
 def get_template_from_dynamodb():

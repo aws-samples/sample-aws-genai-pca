@@ -8,11 +8,8 @@ import json
 import re
 
 TOKEN_COUNT = int(os.getenv('TOKEN_COUNT', '0')) # default 0 - do not truncate.
-html_remover = re.compile('<[^>]*>')
 filler_remover = re.compile('(^| )([Uu]m|[Uu]h|[Ll]ike|[Mm]hm)[,]?')
 
-def remove_html(transcript_string):
-    return re.sub(html_remover, '', transcript_string)
 
 def remove_filler_words(transcript_string):
     return re.sub(filler_remover, '', transcript_string)

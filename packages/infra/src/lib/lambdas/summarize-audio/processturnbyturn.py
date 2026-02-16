@@ -7,7 +7,6 @@ from math import floor
 from pcaresults import SpeechSegment, PCAResults
 import pcaconfiguration as cf
 import pcacommon
-import subprocess
 import copy
 import re
 import json
@@ -996,44 +995,6 @@ class TranscribeParser:
                 # Remove our temporary in case of Lambda container re-use
                 pcacommon.remove_temp_file(mapFilepath)
 
-    def create_playback_mp3_audio(self, audio_uri):
-        """
-        Creates and MP3-version of the audio file used in the Transcribe job, as the HTML5 <audio> playback
-        controller cannot play them back if they are GSM-encoded 8Khz WAV files.  Still need to work out how
-        to check for then encoding type via FFMPEG, but we do get the other info from Transcribe.
-
-        @param audio_uri: URI of the audio file to be potentially dowloaded and converted
-        """
-
-        # Get some info on the audio file before continuing
-        s3Object = urlparse(audio_uri)
-        bucket = s3Object.netloc
-
-        # 8Khz WAV audio gets converted - first, we need to download the original audio file
-        fileObject = s3Object.path.lstrip('/')
-        inputFilename = TMP_DIR + '/' + fileObject.split('/')[-1]
-        outputFilename = inputFilename.split('.wav')[0] + '.mp3'
-        s3Client = boto3.client('s3')
-        s3Client.download_file(bucket, fileObject, inputFilename)
-
-        # Transform the file via FFMPEG - this will exception if not installed
-        try:
-            # Just convert from source to destination format
-            subprocess.call(['ffmpeg', '-nostats', '-loglevel', '0', '-y', '-i', inputFilename, outputFilename],
-                            stdin=subprocess.DEVNULL)
-
-            # Now upload the output file to the configured playback folder in the main input bucket
-            s3FileKey = cf.appConfig[cf.CONF_PREFIX_AUDIO_PLAYBACK] + '/' + outputFilename.split('/')[-1]
-            s3Client.upload_file(outputFilename, cf.appConfig[cf.CONF_S3BUCKET_INPUT], s3FileKey,
-                                 ExtraArgs={'ContentType': 'audio/mp3'})
-            self.audioPlaybackUri = "s3://" + cf.appConfig[cf.CONF_S3BUCKET_INPUT] + "/" + s3FileKey
-        except Exception as e:
-            print(e)
-            print("Unable to create MP3 version of original audio file - could not find FFMPEG libraries")
-        finally:
-            # Remove our temporary files in case of Lambda container re-use
-            pcacommon.remove_temp_file(inputFilename)
-            pcacommon.remove_temp_file(outputFilename)
     
     
 

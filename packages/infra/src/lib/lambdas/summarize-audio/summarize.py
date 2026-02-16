@@ -1,6 +1,5 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-import boto3
 import os
 import pcaconfiguration as cf
 import pcaresults
@@ -11,76 +10,14 @@ import langchainutil
 import traceback
 import xml.etree.ElementTree as ET
 
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage
 
 
-AWS_REGION = os.environ["AWS_REGION_OVERRIDE"] if "AWS_REGION_OVERRIDE" in os.environ else os.environ["AWS_REGION"]
 SUMMARIZE_TYPE = os.getenv('SUMMARY_TYPE', 'BEDROCK')
-TOKEN_COUNT = int(os.getenv('TOKEN_COUNT', '0')) # default 0 - do not truncate.
-MAX_TOKENS = int(os.getenv('MAX_TOKENS','256'))
-
-s3Client = boto3.client('s3')
-dynamodb_client = boto3.client('dynamodb')
-
-# Useful constants
-TMP_DIR = "/tmp"
 
 boto3_bedrock = bedrockutil.get_bedrock_client()
 bedrock_llm = langchainutil.get_bedrock_llm(boto3_bedrock)
 
-
-# Using LLM to find AGENT and CUSTIMER tags
-def identify_customer_agent(transcription):
-    messages = [
-        HumanMessage(
-            content="""You are a smart, focused and objective AI working with AnyCompany which works in fsi segment. 
-You will be given a Transcript having two IDs which are USER_0 and USER_1. You are to identify and tag which of these IDs is the AGENT and the CUSTOMER.    
-Expexted output format:
-<tag_report>
-    {"USER_0": "CUSTOMER OR AGENT whichever is right mapping", "USER_1": "CUSTOMER OR AGENT whichever is right mapping"}
-</tag_report>
-Remember if USER_0 is AGENT then USER_1 is the CUSTOMER or vice versa.
-"""
-        ),
-        AIMessage(
-            content="""Understood, I will tag IDs as instructed. Please provide me with the call transcription."""
-        ),
-        HumanMessage(
-            content="""Yes, following is the transcript, please provide mapping for AGENT and CUSTOMER
-<call_transcription>
-"""+transcription+"""
-</call_transcription>
-Go through the transcription very carefully, think through for the correct mapping for USER_0 and USER_1 and give back the output in the format provided."""
-        ),
-        AIMessage(
-            content="""<tag_report>"""
-        )
-    ]
-    response = bedrock_llm.invoke(messages)
-    result = "<tag_report>\n" + response.content
-    return result
-
-# extracts the transcripts from the transcribe output while correctly identifying the Agent and the Customer
-def fix_customer_agent_mapping_and_get_transcript(tr_str):
-    transcription = tr_str
-    mapping = bedrockutil.extract_json(identify_customer_agent(transcription))
-    for key in mapping.keys():
-        transcription = transcription.replace(key, mapping[key])
-    print(f"agent mapping and get transcription result : {transcription}")
-    return transcription
-
-
-## Consolidating the Transcriptions
-def create_transcription_in_markdown_format(json_str):
-    mapping = {'CUSTOMER': 'USER_0', 'AGENT': 'USER_1'}
-    # file_name = file.split('/')[-1].split('.')[0]
-    # with open(file, 'r') as f:
-    #     data = json.load(f)
-    data = json_str
-    transcription = ""
-    for instance in data['Transcript']:
-        transcription += mapping[instance['ParticipantRole']] + f" : {instance['Content']}\n\n"
-    return transcription
 
 def get_templates_from_dynamodb():
     templates = []
