@@ -50,13 +50,6 @@ export class PostCallAnalyticsStack extends Stack {
     });
     const ddbTables = new DDBTablesConstruct(this, 'ddbtables');
 
-    const langchainLambdaLayer = new PythonLayerVersion(this, 'LangchainLayer', {
-      entry: path.join(__dirname, './lambdas/langchain-layer'),
-      compatibleRuntimes: [Runtime.PYTHON_3_13],
-      description: 'Langchain Layer',
-      layerVersionName: 'langchain_layer',
-    });
-
     const commonLambdaLayer = new PythonLayerVersion(this, 'CommonLayer', {
       entry: path.join(__dirname, './lambdas/common-layer'),
       compatibleRuntimes: [Runtime.PYTHON_3_13],
@@ -67,7 +60,6 @@ export class PostCallAnalyticsStack extends Stack {
     const transcribeWorkflow = new TranscribeWorkflow(this, 'transcribe-workflow', {
       inputBucket,
       metadataTable: ddbTables.metadataTable,
-      langchainLambdaLayer: langchainLambdaLayer,
       commonLambdaLayer: commonLambdaLayer,
       bedrockModelId: props.bedrockModelOrInferenceId,
       inferenceProfileRegionArns: props.inferenceProfileRegionArns,
@@ -76,7 +68,6 @@ export class PostCallAnalyticsStack extends Stack {
       transcribeWorkflow: transcribeWorkflow.stateMachine,
       inputBucket,
       metadataTable: ddbTables.metadataTable,
-      langchainLambdaLayer: langchainLambdaLayer,
       commonLambdaLayer: commonLambdaLayer,
       bedrockModelId: props.bedrockModelOrInferenceId,
       inferenceProfileRegionArns: props.inferenceProfileRegionArns,

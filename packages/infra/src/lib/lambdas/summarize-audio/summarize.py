@@ -6,17 +6,11 @@ import pcaresults
 import json
 import fetchtranscript as fts
 import bedrockutil
-import langchainutil
 import traceback
 import xml.etree.ElementTree as ET
 
-from langchain_core.messages import HumanMessage
-
 
 SUMMARIZE_TYPE = os.getenv('SUMMARY_TYPE', 'BEDROCK')
-
-boto3_bedrock = bedrockutil.get_bedrock_client()
-bedrock_llm = langchainutil.get_bedrock_llm(boto3_bedrock)
 
 
 def get_templates_from_dynamodb():
@@ -147,13 +141,8 @@ def generate_qa_report(transcript):
             ....
         }}
     """
-    messages = [
-        HumanMessage(
-            content= prompt
-        )
-    ]
-    response = bedrock_llm.invoke(messages)
-    greeting_rules = bedrockutil.extract_json(response.content)
+    response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+    greeting_rules = bedrockutil.extract_json(response)
     result_json = {}
     # calculate email score
     overall_score = 0

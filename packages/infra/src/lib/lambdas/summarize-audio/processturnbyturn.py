@@ -14,11 +14,8 @@ import csv
 import boto3
 import time
 import bedrockutil
-import langchainutil
 import pandas as pd
 import math
-
-from langchain_core.messages import HumanMessage
 
 # Sentiment helpers
 MIN_SENTIMENT_LENGTH = 8
@@ -56,8 +53,6 @@ class TranscribeParser:
         self.api_mode = cf.API_STANDARD
         self.analytics_channel_map = {}
         self.asr_output = ""
-        self.boto3_bedrock = bedrockutil.get_bedrock_client()
-        self.bedrock_llm = langchainutil.get_bedrock_llm(self.boto3_bedrock)        
 
 
         cf.loadConfiguration()
@@ -1036,8 +1031,8 @@ class TranscribeParser:
     
             
     
-            response = self.bedrock_llm.invoke([HumanMessage(prompt)])
-            sentiment_evaluation = bedrockutil.extract_json(response.content)           
+            response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+            sentiment_evaluation = bedrockutil.extract_json(response)           
     
             for segment in speech_segments:
                 
@@ -1113,8 +1108,8 @@ class TranscribeParser:
                         }}
                     }}                                         
                     """
-            response = self.bedrock_llm.invoke([HumanMessage(prompt)])
-            loudness_evaluation = bedrockutil.extract_json(response.content)           
+            response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+            loudness_evaluation = bedrockutil.extract_json(response)           
 
             updated_loudness_detections = []
             for loudness in loudness_detections:
@@ -1181,8 +1176,8 @@ class TranscribeParser:
                 }}
             }}                                         
             """
-            response = self.bedrock_llm.invoke([HumanMessage(prompt)])
-            interruption_evaluation = bedrockutil.extract_json(response.content)           
+            response = bedrockutil.call_bedrock({"temperature": 0}, prompt)
+            interruption_evaluation = bedrockutil.extract_json(response)           
             print(interruption_evaluation)
             updated_interruption_detections = []
             for interruption in interruption_detections:

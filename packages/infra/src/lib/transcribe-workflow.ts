@@ -17,7 +17,6 @@ import { supressIAM4ByPath, supressIAM5ByPath } from './nag-utils';
 export interface TranscribeWorkflowProps {
   readonly inputBucket: IBucket;
   readonly metadataTable: Table;
-  readonly langchainLambdaLayer: PythonLayerVersion;
   readonly commonLambdaLayer: PythonLayerVersion;
   readonly bedrockModelId: string;
   readonly inferenceProfileRegionArns?: string[];
@@ -143,7 +142,7 @@ export class TranscribeWorkflow extends Construct {
         METADATA_TABLE_NAME: props.metadataTable.tableName,
         BEDROCK_MODEL_ID: props.bedrockModelId,
       },
-      layers: [props.langchainLambdaLayer, props.commonLambdaLayer],
+      layers: [props.commonLambdaLayer],
     });
 
     summarizeAudioFn.addToRolePolicy(
@@ -151,7 +150,7 @@ export class TranscribeWorkflow extends Construct {
         actions: [
           'bedrock:InvokeModel',
           'bedrock:InvokeModelWithResponseStream',
-
+          'bedrock:Converse',
         ],
         resources: getBedrockResourceArns(props.bedrockModelId, props.inferenceProfileRegionArns, Stack.of(this)),
         effect: Effect.ALLOW,
