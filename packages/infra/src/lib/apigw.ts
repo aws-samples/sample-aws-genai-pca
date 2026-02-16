@@ -36,7 +36,7 @@ export class ApiConstruct extends Construct {
       entry: path.join(__dirname, './lambdas/api-handler'),
       index: 'app.py',
       handler: 'handler',
-      runtime: Runtime.PYTHON_3_13,
+      runtime: Runtime.PYTHON_3_14,
       timeout: Duration.seconds(20),
       environment: {
         ALLOWED_DOMAINS: props.allowedDomains,
@@ -52,7 +52,7 @@ export class ApiConstruct extends Construct {
       index: 'app.py',
       handler: 'handler',
       memorySize: 512,
-      runtime: Runtime.PYTHON_3_13,
+      runtime: Runtime.PYTHON_3_14,
       timeout: Duration.seconds(30),
       environment: {
         ALLOWED_DOMAINS: props.allowedDomains,
