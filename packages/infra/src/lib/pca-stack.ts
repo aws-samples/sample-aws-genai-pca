@@ -52,7 +52,7 @@ export class PostCallAnalyticsStack extends Stack {
 
     const commonLambdaLayer = new PythonLayerVersion(this, 'CommonLayer', {
       entry: path.join(__dirname, './lambdas/common-layer'),
-      compatibleRuntimes: [Runtime.PYTHON_3_13],
+      compatibleRuntimes: [Runtime.PYTHON_3_14],
       description: 'Common Layer',
       layerVersionName: 'common_layer',
     });
@@ -78,7 +78,7 @@ export class PostCallAnalyticsStack extends Stack {
       entry: path.join(__dirname, './lambdas/s3-input-trigger'),
       index: 'app.py',
       handler: 'handler',
-      runtime: Runtime.PYTHON_3_13,
+      runtime: Runtime.PYTHON_3_14,
       timeout: Duration.minutes(5),
       environment: {
         TICKETS_WORKFLOW_ARN: ticketsWorkflow.stateMachine.stateMachineArn,

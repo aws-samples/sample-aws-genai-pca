@@ -135,7 +135,7 @@ export class TranscribeWorkflow extends Construct {
       entry: path.join(__dirname, './lambdas/summarize-audio'),
       index: 'app.py',
       handler: 'handler',
-      runtime: Runtime.PYTHON_3_13,
+      runtime: Runtime.PYTHON_3_14,
       timeout: Duration.minutes(15),
       environment: {
         INPUT_BUCKET: props.inputBucket.bucketName,
