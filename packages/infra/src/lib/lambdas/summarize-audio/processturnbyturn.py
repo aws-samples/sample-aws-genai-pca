@@ -6,16 +6,16 @@ from urllib.parse import urlparse
 from math import floor
 from pcaresults import SpeechSegment, PCAResults
 import pcaconfiguration as cf
-import pcacommon
 import copy
 import re
 import json
 import csv
+import io
+import os
+import math
 import boto3
 import time
 import bedrockutil
-import pandas as pd
-import math
 
 # Sentiment helpers
 MIN_SENTIMENT_LENGTH = 8
@@ -988,7 +988,9 @@ class TranscribeParser:
                 print(e)
             finally:
                 # Remove our temporary in case of Lambda container re-use
-                pcacommon.remove_temp_file(mapFilepath)
+                if os.path.exists(mapFilepath):
+                    os.remove(mapFilepath)
+
 
     
     
@@ -1003,13 +1005,20 @@ class TranscribeParser:
         
         trimmed_segments = list(map(lambda x: {'SegmentId': x['SegmentId'], 'Speaker': x['SegmentSpeaker'], 'Text': x['OriginalText']}, speech_segments))
         #Removing segments which are fillers
-        trimmed_segments = filter(lambda x: len(x['Text'])>4, trimmed_segments)
-        segments_df = pd.DataFrame.from_dict(trimmed_segments)
-        segments_csv = segments_df.to_csv(index=False)
+        trimmed_segments = [x for x in trimmed_segments if len(x['Text'])>4]
+        fieldnames = ['SegmentId', 'Speaker', 'Text']
+
+        def segments_to_csv(segments):
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(segments)
+            return output.getvalue()
+
         updated_speech_segments = []
         
-        for i in range(0, segments_df.shape[0], 100):
-            segments_csv = segments_df[i:i+100].to_csv(index=False)
+        for i in range(0, len(trimmed_segments), 100):
+            segments_csv = segments_to_csv(trimmed_segments[i:i+100])
             prompt = f"""
               AnyCompany is an Indian enterprise which works in fsi segment.
     
@@ -1294,7 +1303,8 @@ class TranscribeParser:
         sf_event.pop("redactedMediaFileUri", None)
 
         # delete the local file
-        pcacommon.remove_temp_file(json_filepath)
+        if os.path.exists(json_filepath):
+            os.remove(json_filepath)
 
 
 def lambda_handler(event):
